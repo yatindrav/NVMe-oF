@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #pragma once
 #pragma warning(push)
 #pragma warning(disable:4201) // nameless struct/union

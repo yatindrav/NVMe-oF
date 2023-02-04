@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #include "fabric_api.h"
 #include "trace.h"
 #include "winsockinit.tmh"
@@ -17,29 +21,29 @@ WSK_PROVIDER_NDK_DISPATCH   gsNdkDispatch = { 0 };
 _IRQL_requires_(PASSIVE_LEVEL)
 _Must_inspect_result_
 NTSTATUS
-NVMeNdkStartup(VOID);
+NVMeoFNdkStartup(VOID);
 
 _IRQL_requires_(PASSIVE_LEVEL)
 VOID
-NVMeNdkCleanup(VOID);
+NVMeoFNdkCleanup(VOID);
 
 _IRQL_requires_(PASSIVE_LEVEL)
 _Must_inspect_result_
 NTSTATUS
 NTAPI
-NVMeWskStartup(VOID);
+NVMeoFWskStartup(VOID);
 
 _IRQL_requires_(PASSIVE_LEVEL)
 VOID
 NTAPI
-NVMeWskCleanup(VOID);
+NVMeoFWskCleanup(VOID);
 
 
 #ifdef ALLOC_PRAGMA
-#pragma alloc_text(PAGE, NVMeWskStartup)
-#pragma alloc_text(PAGE, NVMeWskCleanup)
-#pragma alloc_text(PAGE, NVMeNdkStartup)
-#pragma alloc_text(PAGE, NVMeNdkCleanup)
+#pragma alloc_text(PAGE, NVMeoFWskStartup)
+#pragma alloc_text(PAGE, NVMeoFWskCleanup)
+#pragma alloc_text(PAGE, NVMeoFNdkStartup)
+#pragma alloc_text(PAGE, NVMeoFNdkCleanup)
 #endif //ALLOC_PRAGMA
 
 
@@ -61,7 +65,7 @@ BOOLEAN NTAPI IsNdkinitialized(VOID)
 _IRQL_requires_(PASSIVE_LEVEL)
 _Must_inspect_result_
 NTSTATUS
-NVMeNdkStartup(VOID)
+NVMeoFNdkStartup(VOID)
 {
 	NTSTATUS Status;
 	WSK_CLIENT_NPI sNdkClientNpi = { NULL,  &gsNdkClientDispatch };
@@ -108,7 +112,7 @@ NVMeNdkStartup(VOID)
 
 _IRQL_requires_(PASSIVE_LEVEL)
 VOID
-NVMeNdkCleanup(VOID)
+NVMeoFNdkCleanup(VOID)
 {
 	PAGED_CODE();
 	if (InterlockedCompareExchange(&glNdkState, INITIALIZED, DEINITIALIZING) != INITIALIZED)
@@ -123,7 +127,7 @@ _IRQL_requires_(PASSIVE_LEVEL)
 _Must_inspect_result_
 NTSTATUS
 NTAPI
-NVMeWskStartup(VOID)
+NVMeoFWskStartup(VOID)
 {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
@@ -157,7 +161,7 @@ NVMeWskStartup(VOID)
 _IRQL_requires_(PASSIVE_LEVEL)
 VOID
 NTAPI
-NVMeWskCleanup(VOID)
+NVMeoFWskCleanup(VOID)
 {
 	PAGED_CODE();
 

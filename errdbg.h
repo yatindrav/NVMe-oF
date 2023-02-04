@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #pragma once
 
 #define NVMEOF_DEBUG_LOG_LEVEL_VESBOSE      0x1
@@ -15,7 +19,7 @@
 typedef VOID(*fnNVMeoFDebugLog)(__in ULONG ulLogLevel,
                                 __in __nullterminated PCHAR pcFormatString,
                                 ...);
-fnNVMeoFDebugLog PdsBusGetDebugLoggingFunction(VOID);
+fnNVMeoFDebugLog NVMeoFGetDebugLoggingFunction(VOID);
 VOID
 NVMeoFLogEvent(__in NTSTATUS ulLogLevel,
                __in __nullterminated PCHAR pcFormatString,

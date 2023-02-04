@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #include "nvme.h"
 #include "nvmef.h"
 #include "xport_wrq.h"
@@ -8,19 +12,6 @@
 
 #include "trace.h"
 #include "nvmeof_cmd.tmh"
-/****************************** Module Header Starts *********************************************************************************
-* Module Name:  NVMeoRDMA.c
-* Project:      Pavilion Virtual Bus Driver part of NVMeOF Solution
-* Writer:       Yatindra Vaishanv
-* Description:  This module takes care of following NVMe over TCP Protocol operations:
-*               1. Creating Admin queue for discovery log page inquery.
-*               2. Creating Admin queue and IO or submission queues for IO with the target.
-*               3. Managing the Admin and IO queues
-*               4. Allocating the Protocol specific data and information
-* Copyright (c) 2019 - 2020 Paviion Data Systems Inc.
-*
-*
-****************************** Module Header Ends***********************************************************************************/
 
 #include "trace.h"
 //#include "NVMeofRDMA.tmh"
@@ -55,7 +46,7 @@ NTSTATUS
 NVMeoFRdmaCreateAsyncSocket(__in PNVMEOF_FABRIC_CONTROLLER psController,
                             __in PSOCKADDR_INET            psDestAddr,
                             __in PSOCKADDR_INET            psLocalAddress,
-                            __in PPDS_NDK_CALLBACKS        psDispatcher,
+                            __in PNDK_CALLBACKS        psDispatcher,
                             __inout PNDK_SOCKET*           ppsConnectedSocket)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
@@ -215,8 +206,8 @@ NVMeoFRdmaGetFreeReceiveWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psController,
 
 	while (ulWorkReqCount) {
 		if (_InterlockedCompareExchange(&psRdmaIoReq[(ulWorkReqCount - 1)].lReqState,
-			                            PDS_NVMEOF_RESPONSE_STATE_SUBMITTED,
-			                            PDS_NVMEOF_RESPONSE_STATE_FREE) == PDS_NVMEOF_RESPONSE_STATE_FREE) {
+			                            NVMEOF_RESPONSE_STATE_SUBMITTED,
+			                            NVMEOF_RESPONSE_STATE_FREE) == NVMEOF_RESPONSE_STATE_FREE) {
 			NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Found Send WorkReq %p!\n", __FUNCTION__, __LINE__,
 				&psRdmaIoReq[(ulWorkReqCount - 1)]);
 			return &psRdmaIoReq[(ulWorkReqCount - 1)];
@@ -297,7 +288,7 @@ NVMeoFRdmaAdminHandleRcqRcvReq(_In_ PNVMEOF_QUEUE psAdminQ,
 				NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
 					psRcvWorkReq->psBufferMdlMap->pvBuffer,
 					ulByteXferred,
-					PDS_PRINT_HEX_PER_LINE_8_BYTES);
+					NVMEOF_PRINT_HEX_PER_LINE_8_BYTES);
 				psSndWkReq =
 					NVMeoFRdmaAdminFindSendWorkRequest(psAdminQ,
 						((PNVME_COMPLETION_QUEUE_ENTRY)psRcvWorkReq->psBufferMdlMap->pvBuffer)->usCommandID);
@@ -316,7 +307,7 @@ NVMeoFRdmaAdminHandleRcqRcvReq(_In_ PNVMEOF_QUEUE psAdminQ,
 					NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
 						psRcvWorkReq->psBufferMdlMap->pvBuffer,
 						ulByteXferred,
-						PDS_PRINT_HEX_PER_LINE_8_BYTES);
+						NVMEOF_PRINT_HEX_PER_LINE_8_BYTES);
 					bResubmitReceive = TRUE;
 					Status = STATUS_INVALID_PARAMETER;
 				}
@@ -471,9 +462,9 @@ NVMeoFRdmaAdminHandleSqReturnWorkRequest(_In_ PNVMEOF_QUEUE psAdminQ,
                        __LINE__,
                        Status);
 		psWorkReq = psNdkWkReq->pvCallbackCtx;
-		if (psWorkReq->ulType == PDS_NVMEOF_REQUEST_TYPE_DATA) {
+		if (psWorkReq->ulType == NVMEOF_NVMEOF_REQUEST_TYPE_DATA) {
 			KeSetEvent(&psWorkReq->sCompletionCtx.sEvent, IO_NO_INCREMENT, FALSE);
-		} else if (psWorkReq->ulType == PDS_NVMEOF_REQUEST_TYPE_RECEIVE) {
+		} else if (psWorkReq->ulType == NVMEOF_NVMEOF_REQUEST_TYPE_RECEIVE) {
 			_InterlockedDecrement64(&psAdminQ->l64FRMRCurrentCount);
 			KeSetEvent(&psWorkReq->sCompletionCtx.sEvent, IO_NO_INCREMENT, FALSE);
 		}
@@ -560,9 +551,9 @@ NVMeoFRdmaAdminScqCallback(_In_ PNVMEOF_QUEUE psAdminQ,
 	}
 
 	if (psAdminQ->psFabricCtx->psRdmaCtx->lSendWorkRequestOutstanding) {
-		PdsNdkArmCompletionQueue(psAdminQ->psParentController->sSession.pvSessionFabricCtx,
-                                 psAdminQ->psFabricCtx->psRdmaCtx->psNdkQP->psNdkScq,
-                                 NDK_CQ_NOTIFY_ANY);
+		NdkArmCompletionQueue(psAdminQ->psParentController->sSession.pvSessionFabricCtx,
+                              psAdminQ->psFabricCtx->psRdmaCtx->psNdkQP->psNdkScq,
+                              NDK_CQ_NOTIFY_ANY);
 	}
 	NVMeoFDebugLog(LOG_LEVEL_VERBOSE, "%s:%d:Out!\n", __FUNCTION__, __LINE__);
 }
@@ -642,24 +633,24 @@ NVMeoFRdmaHandleAsyncEvents(__in PNVMEOF_QUEUE                psAdminQ,
 
 	switch (ulAERNoticeType) {
 	case NVMEOF_AER_NOTIFY_NS_CHANGED:
-		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, PDS_NVME_AEN_BIT_POS_NSATTR);
+		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, NVME_AEN_BIT_POS_NSATTR);
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Received Event for NameSpace Attr changed!\n", __FUNCTION__, __LINE__);
 		NVMeoFLogEvent(NVME_OF_INFORMATIONAL, "%s:%d:Received Event for NameSpace Attr changed!\n", __FUNCTION__, __LINE__);
 		break;
 	case NVMEOF_AER_NOTIFY_FW_ACT_STARTING:
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Received Event for FW Activation!\n", __FUNCTION__, __LINE__);
 		NVMeoFLogEvent(NVME_OF_INFORMATIONAL, "%s:%d:Received Event for FW Activation!\n", __FUNCTION__, __LINE__);
-		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, PDS_NVME_AEN_BIT_POS_FW_ACT);
+		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, NVME_AEN_BIT_POS_FW_ACT);
 		break;
 	case NVMEOF_AER_NOTIFY_ANA:
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Received Event for ANA!\n", __FUNCTION__, __LINE__);
 		NVMeoFLogEvent(NVME_OF_INFORMATIONAL, "%s:%d:Received Event for ANA!\n", __FUNCTION__, __LINE__);
-		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, PDS_NVME_AEN_BIT_POS_ANA_CHANGE);
+		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, NVME_AEN_BIT_POS_ANA_CHANGE);
 		break;
 	case NVMEOF_AER_NOTIFY_DISC_CHANGED:
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Received Event for DISCOVERY Change!\n", __FUNCTION__, __LINE__);
 		NVMeoFLogEvent(NVME_OF_INFORMATIONAL, "%s:%d:Received Event for DISCOVERY Change!\n", __FUNCTION__, __LINE__);
-		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, PDS_NVME_AEN_BIT_POS_DISC_CHANGE);
+		_interlockedbittestandset((volatile LONG*)&psAdminQ->psParentController->ulAsyncEventsArrived, NVME_AEN_BIT_POS_DISC_CHANGE);
 		break;
 	default:
 		bFireEventHandler = FALSE;
@@ -670,7 +661,7 @@ NVMeoFRdmaHandleAsyncEvents(__in PNVMEOF_QUEUE                psAdminQ,
 
 	if (bFireEventHandler) {
 		if (psAdminQ->psParentController->sOsManager.hEventHandlerTimer) {
-			WdfTimerStart(psAdminQ->psParentController->sOsManager.hEventHandlerTimer, PDS_CHANGE_ASYNC_REQUEST_TIMER_DUE_TIME);
+			WdfTimerStart(psAdminQ->psParentController->sOsManager.hEventHandlerTimer, CHANGE_ASYNC_REQUEST_TIMER_DUE_TIME);
 		}
 	}
 }
@@ -743,29 +734,8 @@ NVMeoFRdmaGetMdlInfo(__in PMDL psMdl,
                      __in PVOID pvBaseVA,
                      __inout PULONG pulLamAllocationSize)
 {
-#if 0
-	for (psMdlInfo->ulTotalMdlCount = 0, psMdlInfo->ulMdlTotalByteCount = 0, psMdlInfo->ulTotalPageCount = 0; psMdl; psMdl = psMdl->Next) {
-		ULONG ulLamPageCount;
-		ulLamPageCount = PDS_GET_MDL_PAGE_COUNT(psMdl);
-		psMdlInfo->ulTotalPageCount += ulLamPageCount;
-		psMdlInfo->ulCurrentLamCbSize += PDS_GET_LAM_BUFFERSIZE(ulLamPageCount);
-		psMdlInfo->ulTotalAdapterPageArraySize = PDS_GET_ADAPTER_PAGE_ARRAY_SIZE(ulLamPageCount);
-		psMdlInfo->ulMdlTotalByteCount += MmGetMdlByteCount(psMdl);
-		psMdlInfo->ulTotalMdlCount++;
-	}
-	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:Total MDLs %u Bytes %u Page %u LAM buffer size %u\n", __FUNCTION__, __LINE__,
-		psMdlInfo->ulTotalMdlCount,
-		psMdlInfo->ulMdlTotalByteCount,
-		psMdlInfo->ulTotalPageCount,
-		psMdlInfo->ulCurrentLamCbSize);
-#else
 	ULONG ulMdlCount = 0;
-	//psMdlInfo->ulTotalPageCount = PDS_GET_MDL_PAGE_COUNT(psMdl, pvBaseVA);
-	//psMdlInfo->ulCurrentLamCbSize = PDS_GET_LAM_BUFFERSIZE(psMdlInfo->ulTotalPageCount);
-	//psMdlInfo->ulTotalAdapterPageArraySize = PDS_GET_ADAPTER_PAGE_ARRAY_SIZE(psMdlInfo->ulTotalPageCount);
-	//psMdlInfo->ulMdlTotalByteCount = MmGetMdlByteCount(psMdl);
-	//psMdlInfo->ulTotalMdlCount++;
-	*pulLamAllocationSize = PDS_GET_LAM_BUFFERSIZE(PDS_GET_MDL_PAGE_COUNT(psMdl, pvBaseVA));
+	*pulLamAllocationSize = NVMEOF_GET_LAM_BUFFERSIZE(NVMEOF_GET_MDL_PAGE_COUNT(psMdl, pvBaseVA));
 	for (; psMdl; ulMdlCount++, psMdl = psMdl->Next);
 
 	if (ulMdlCount > 1) {
@@ -776,11 +746,7 @@ NVMeoFRdmaGetMdlInfo(__in PMDL psMdl,
 			*pulLamAllocationSize);
 		NT_ASSERT(0);
 	}
-
-
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d: Required LAM buffer size %u\n", __FUNCTION__, __LINE__, *pulLamAllocationSize);
-
-#endif
 	return;
 }
 
@@ -832,7 +798,7 @@ NVMeoFRdmaFreeNdkWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psController, PVOID 
 }
 
 static
-PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL
+PNVMEF_TRANSPORT_RDMA_BUFFER_MDL
 NVMeoFRdmaAllocateBufferMdlMap(__in PNVMEOF_FABRIC_CONTROLLER psController)
 {
 	return
@@ -983,7 +949,7 @@ NVMeoFRdmaReleaseLamSglMap(__in    PNVMEOF_FABRIC_CONTROLLER    psController,
 
 		psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_RELEASE_LAM;
 		psNdkWorkReq->sBuildLamReq.psLam = psLamSgl->psLaml;
-		PdsNdkReleaseLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+		NdkReleaseLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
 
 		NVMeoFRdmaFreeNpp(psLamSgl->psLaml);
 		psLamSgl->psLaml = NULL;
@@ -1117,7 +1083,7 @@ NVMeoFRdmaCreateAndInitializeMr(__in PNVMEOF_FABRIC_CONTROLLER       psControlle
 		psCreateMr->psNdkWorkReq->sCloseFRMRReq.psNdkMr = psLamSgl->psNdkMr;
 		psCreateMr->psNdkWorkReq->sCloseFRMRReq.fnCloseCompletion = NULL;
 		psCreateMr->psNdkWorkReq->sCloseFRMRReq.pvContext = NULL;
-		PdsNdkCloseMemoryRegionAsync(psController->sSession.pvSessionFabricCtx, psCreateMr->psNdkWorkReq);
+		NdkCloseMemoryRegionAsync(psController->sSession.pvSessionFabricCtx, psCreateMr->psNdkWorkReq);
 		NVMeoFRdmaFreeNdkWorkRequest(psController, psCreateMr->psNdkWorkReq);
 		NVMeoFRdmaFreeNpp(psCreateMr);
 		return (Status);
@@ -1148,7 +1114,7 @@ NVMeoFRdmaFastRegisterMr(__in PNVMEOF_FABRIC_CONTROLLER                 psContro
 {
 	PNVMEOF_RDMA_WORK_REQUEST psCreateMr = NULL;
 	NTSTATUS                  Status = STATUS_SUCCESS;
-	PNDK_QUEUE_PAIR_BUNDLE    psPdsNdkQP = NULL;
+	PNDK_QUEUE_PAIR_BUNDLE    psNVMeofNdkQP = NULL;
 	PNVMEOF_QUEUE             psSQ = NVMeoFRdmaGetIOQFromQId(psController, ulQId);
 
 	if (!psSQ) {
@@ -1170,9 +1136,9 @@ NVMeoFRdmaFastRegisterMr(__in PNVMEOF_FABRIC_CONTROLLER                 psContro
 		return (STATUS_NO_MEMORY);
 	}
 
-	psPdsNdkQP = psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
+	psNVMeofNdkQP = psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
 
-	if (psPdsNdkQP) {
+	if (psNVMeofNdkQP) {
 		if (bData) {
 			psCreateMr->ulType = NVMEOF_REQUEST_TYPE_DATA;
 		} else {
@@ -1188,10 +1154,9 @@ NVMeoFRdmaFastRegisterMr(__in PNVMEOF_FABRIC_CONTROLLER                 psContro
 		psCreateMr->psNdkWorkReq->sFRMRReq.pvBaseVirtualAddress = (PVOID)((ULONG_PTR)MmGetMdlVirtualAddress(psLamSgl->psMdl) ^ ((ULONG_PTR)psCreateMr & 0xFFFFFFFFFFFFF000));
 		psCreateMr->psNdkWorkReq->ulFlags = (NDK_OP_FLAG_ALLOW_REMOTE_READ | NDK_OP_FLAG_ALLOW_REMOTE_WRITE);
 		KeInitializeEvent(&psCreateMr->sCompletionCtx.sEvent, NotificationEvent, FALSE);
-		Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, psPdsNdkQP, psCreateMr->psNdkWorkReq);
+		Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, psNVMeofNdkQP, psCreateMr->psNdkWorkReq);
 		KeWaitForSingleObject(&psCreateMr->sCompletionCtx.sEvent, Executive, KernelMode, FALSE, NULL);
-	}
-	else {
+	} else {
 		Status = STATUS_INVALID_PARAMETER;
 	} 
 
@@ -1271,7 +1236,7 @@ NVMeoFRdmaCreateLamAndSglForMdl(__in    PNVMEOF_FABRIC_CONTROLLER              p
 	psNdkWorkReq->sBuildLamReq.szMdlBytesToMap = MmGetMdlByteCount(psMdl);
 	psNdkWorkReq->fnCallBack = NULL;
 	psNdkWorkReq->pvCallbackCtx = NULL;
-	Status = PdsNdkBuildLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 	if (NT_ERROR(Status)) {
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:BuildLam Failed With Status 0x%x!\n", __FUNCTION__, __LINE__, Status);
 		return Status;
@@ -1335,20 +1300,20 @@ NVMeoFRdmaSubmitReceiveWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psController,
                                    __in ULONG ulQId,
                                    __in PNVMEOF_RDMA_WORK_REQUEST psWorkReq)
 {
-	PNDK_QUEUE_PAIR_BUNDLE psPdsNdkQP = NULL;
+	PNDK_QUEUE_PAIR_BUNDLE psNVMeoFNdkQP = NULL;
 	PNVMEOF_QUEUE psSQ = NVMeoFRdmaGetIOQFromQId(psController, ulQId);
 	if (!psSQ) {
 		return STATUS_INVALID_PARAMETER;
 	}
 
-	psPdsNdkQP = &psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
+	psNVMeoFNdkQP = &psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
 
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:Submitting Receive Work Request 0x%p\n", __FUNCTION__, __LINE__,
 		           psWorkReq->psNdkWorkReq);
 
 	return
 		NdkSubmitRequest(psController->sSession.pvSessionFabricCtx,
-			             psPdsNdkQP,
+			             psNVMeoFNdkQP,
 			             psWorkReq->psNdkWorkReq);
 }
 
@@ -1575,7 +1540,7 @@ NVMeoFRdmaAdminAllocateReceiveResources(__in PNVMEOF_FABRIC_CONTROLLER psControl
 		psReceiveWorkReq->pvParentQP = psAdminQueue;
 		KeInitializeEvent(&psReceiveWorkReq->sCompletionCtx.sEvent, NotificationEvent, FALSE);
 		psReceiveWorkReq->sCompletionCtx.Status = STATUS_SUCCESS;
-		psReceiveWorkReq->ulType = PDS_NVMEOF_REQUEST_TYPE_RECEIVE;
+		psReceiveWorkReq->ulType = NVMEOF_REQUEST_TYPE_RECEIVE;
 
 		Status =
 			NVMeoFRdmaPrepareReceiveWorkRequest(psController,
@@ -1597,7 +1562,7 @@ NVMeoFRdmaAdminAllocateReceiveResources(__in PNVMEOF_FABRIC_CONTROLLER psControl
 static
 VOID
 NVMeoFRdmaAdminFreeCommand(__in PNVMEOF_FABRIC_CONTROLLER psController,
-	__in PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psBufferMdlMap)
+	__in PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psBufferMdlMap)
 {
 	if (psBufferMdlMap->psLamSglMap) {
 		if (psBufferMdlMap->psLamSglMap) {
@@ -1620,7 +1585,7 @@ NVMeoFRdmaAdminFreeCommand(__in PNVMEOF_FABRIC_CONTROLLER psController,
 static
 VOID
 NVMeoFRdmaAdminFreeData(__in PNVMEOF_FABRIC_CONTROLLER psController,
-	__in PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBufferMdlMap)
+	__in PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBufferMdlMap)
 {
 	if (psDataBufferMdlMap->psLamSglMap) {
 		if (psDataBufferMdlMap->psLamSglMap) {
@@ -1784,7 +1749,7 @@ NVMeoFRdmaAdminAllocateSubmissionResources(__in PNVMEOF_FABRIC_CONTROLLER psCont
 
 		psSubmissionWorkReq->pvParentQP = psController->sSession.psAdminQueue;
 		KeInitializeEvent(&psSubmissionWorkReq->sCompletionCtx.sEvent, NotificationEvent, FALSE);
-		psSubmissionWorkReq->ulType = PDS_NVMEOF_REQUEST_TYPE_SEND;
+		psSubmissionWorkReq->ulType = NVMEOF_REQUEST_TYPE_SEND;
 		psSubmissionWorkReq->usCommandID = 0xFFFF;
 		psSubmissionWorkReq->pvParentQP = psController->sSession.psAdminQueue;
 		_InterlockedExchange(&psSubmissionWorkReq->lReqState, NVMEOF_WORK_REQUEST_STATE_FREE);
@@ -1955,7 +1920,7 @@ NVMeoFRdmaAllocateLookasideLists(__in PNVMEOF_FABRIC_CONTROLLER psController)
 		NULL,
 		NonPagedPoolNxCacheAligned,
 		0,
-		sizeof(PDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL),
+		sizeof(NVMEF_TRANSPORT_RDMA_BUFFER_MDL),
 		'cmdR',//NVMEF_RDMA_MEMORY_TAG,
 		0);
 
@@ -2129,7 +2094,7 @@ NTSTATUS
 NVMeoFRdmaXportConnectControllerAdminQueue(__in PNVMEOF_FABRIC_CONTROLLER psController)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	PDS_NDK_CALLBACKS sRDMASockedCB = { 0 };
+    NVMEF_NDK_CALLBACKS sRDMASockedCB = { 0 };
 	sRDMASockedCB.fnCloseCompletionCb = NVMeoFRdmaXportCloseCompletion;
 	sRDMASockedCB.fnCreateCompletionCb = NVMeoFRdmaXportCreateCompletion;
 	sRDMASockedCB.fnRequestCompletionCb = NVMeoFRdmaXportRequestCompletion;
@@ -2329,7 +2294,7 @@ NVMeoFRdmaReleaseSendWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psController,
 		psWorkReq->psDataBufferMdlMap->ulBufferLength = 0;
 	}
 
-	_InterlockedExchange(&psWorkReq->lReqState, PDS_NVMEOF_RESPONSE_STATE_FREE);
+	_InterlockedExchange(&psWorkReq->lReqState, NVMEOF_RESPONSE_STATE_FREE);
 	return STATUS_SUCCESS;
 }
 
@@ -2340,11 +2305,11 @@ NVMeoFRdmaSubmitSendWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psController,
 	__in PNVMEOF_RDMA_WORK_REQUEST psWorkReq)
 {
 	PNVMEOF_QUEUE psSQ = NVMeoFRdmaGetIOQFromQId(psController, ulQId);
-	PNDK_QUEUE_PAIR_BUNDLE psPdsNdkQP = NULL;
+	PNDK_QUEUE_PAIR_BUNDLE psNVMeoFNdkQP = NULL;
     NT_ASSERT(psSQ);
-    psPdsNdkQP = psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
+	psNVMeoFNdkQP = psSQ->psFabricCtx->psRdmaCtx->psNdkQP;
 	return 	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx,
-		                     psPdsNdkQP,
+                             psNVMeoFNdkQP,
 		                     psWorkReq->psNdkWorkReq);
 }
 
@@ -2395,10 +2360,10 @@ NVMeoFRdmaAdminSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER  psControll
 			                                           NVME_ADMIN_QUEUE_ID,
 			                                           psAdminReqResp->sSndBuffer.sReqRespBuffer.pvBuffer,
 			                                           psAdminReqResp->sSndBuffer.sReqRespBuffer.ulBufferLen,
-			                                           (psAdminReqResp->ulFlags == PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA) ?
+			                                           (psAdminReqResp->ulFlags == NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA) ?
 			                                           psAdminReqResp->sSndBuffer.sDataBuffer.pvBuffer :
 			                                           psAdminReqResp->sRcvBuffer.sDataBuffer.pvBuffer,
-			                                           (psAdminReqResp->ulFlags == PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA) ?
+			                                           (psAdminReqResp->ulFlags == NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA) ?
 			                                           psAdminReqResp->sSndBuffer.sDataBuffer.ulBufferLen:
 			                                           psAdminReqResp->sRcvBuffer.sDataBuffer.ulBufferLen);
 	if (!psSndWkReq) {
@@ -2413,17 +2378,17 @@ NVMeoFRdmaAdminSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER  psControll
 	psSndWkReq->pvParentReqCtx = psAdminReqResp;
 	psSndWkReq->usCommandID = usCommandID;
 	switch (psAdminReqResp->ulFlags) {
-	case PDS_NVMEOF_ADMIN_REQUEST_TYPE_SEND_ONLY:
+	case NVMEOF_ADMIN_REQUEST_TYPE_SEND_ONLY:
 		psSndWkReq->fSendReqCompletion = NVMeoFRdmaSubmissionWorkReqSendOnlyNVMeCompletion;
 		psSndWkReq->fNVMeReqCompletion = NULL;
 		break;
-	case PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC:
-	case PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC_RECEIVE_DATA:
-	case PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA:
+	case NVMEOF_ADMIN_REQUEST_TYPE_SYNC:
+	case NVMEOF_ADMIN_REQUEST_TYPE_SYNC_RECEIVE_DATA:
+	case NVMEOF_ADMIN_REQUEST_TYPE_SYNC_SEND_DATA:
 		psSndWkReq->fSendReqCompletion = NULL;
 		psSndWkReq->fNVMeReqCompletion = NVMeoFRdmaSubmissionWorkReqNVMeCompletion;
 		break;
-	case PDS_NVMEOF_ADMIN_REQUEST_TYPE_ASYNC:
+	case NVMEOF_ADMIN_REQUEST_TYPE_ASYNC:
 		break;
 	default:
 		ASSERT(0);
@@ -2450,7 +2415,6 @@ NVMeoFRdmaAdminSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER  psControll
 		__FUNCTION__,
 		__LINE__,
 		Status);
-	//liCommandTimeOut.QuadPart = -PDS_MILLISECONDS_TO_100NANOSECONDS(PDS_SECONDS_TO_MILLISECONDS(PDS_NVME_ADMIN_COMMAND_TIMEOUT_SEC));
 	liCommandTimeOut.QuadPart = WDF_REL_TIMEOUT_IN_MS(NVMEOF_ADMIN_COMMAND_TIMEOUT_SEC * 1000ULL);
 	Status = KeWaitForSingleObject(&psSndWkReq->sCompletionCtx.sEvent, Executive, KernelMode, FALSE, &liCommandTimeOut);
 	if (Status == STATUS_TIMEOUT) {
@@ -2713,7 +2677,7 @@ NVMeoFRdmaPrepareNVMeConnectCommand(__in PNVMEOF_FABRIC_CONTROLLER psController,
 	psNVMeConnectCmd->sConnect.usCommandId = usCommandID;
 	psNVMeConnectCmd->sConnect.usQId = usQId;
 	psNVMeConnectCmd->sConnect.usSQSize = usSQSize;
-	psNVMeConnectCmd->sConnect.ulKATO = (psController->ulKATO) ? PDS_SEC_TO_MS(psController->ulKATO) : 0;
+	psNVMeConnectCmd->sConnect.ulKATO = (psController->ulKATO) ? NVMEOF_SEC_TO_MS(psController->ulKATO) : 0;
 	NVMeoFRdmaNvmeofXportSetSG(psController,
 		                       usQId,
 		                       psNVMeConnectCmd,
@@ -2887,7 +2851,7 @@ NVMeoFRdmaSetupAdminConnection(__in PNVMEOF_FABRIC_CONTROLLER psController)
 		usCommandID,
 		ulDataSz);
 
-	psAdminReqResp->ulFlags |= PDS_NVMEOF_ADMIN_REQUEST_TYPE_SYNC;
+	psAdminReqResp->ulFlags |= NVMEOF_ADMIN_REQUEST_TYPE_SYNC;
 
 	Status = NVMeoFRdmaAdminSubmitRequestSyncAsync(psController, usCommandID, psAdminReqResp);
 	if (NT_SUCCESS(Status)) {
@@ -2995,7 +2959,9 @@ NVMeoFRdmaIOQReleaseOneSubmissionRequestCommandBuffer(__in PNVMEOF_FABRIC_CONTRO
 {
 	psSubmissionRequest->psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_RELEASE_LAM;
 	psSubmissionRequest->psNdkWorkReq->sReleaseLamReq.psLam = psSubmissionRequest->psBufferMdlMap->psLamSglMap->psLaml;
-	PdsNdkReleaseLam(psController->sSession.pvSessionFabricCtx, psSubmissionRequest->psNdkWorkReq);
+	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, 
+		             NULL,
+                     psSubmissionRequest->psNdkWorkReq);
 
 	NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d: here!\n", __FUNCTION__, __LINE__);
 
@@ -3052,7 +3018,7 @@ NVMeoFRdmaIOQReleaseOneSubmissionRequestDataBuffer(__in PNVMEOF_FABRIC_CONTROLLE
 	psSubmissionRequest->psNdkWorkReq->sCloseFRMRReq.psNdkMr = psSubmissionRequest->psDataBufferMdlMap->psLamSglMap->psNdkMr;
 	psSubmissionRequest->psNdkWorkReq->sCloseFRMRReq.fnCloseCompletion = NVMeoFRdmaCloseMrCompletion;
 	psSubmissionRequest->psNdkWorkReq->sCloseFRMRReq.pvContext = &psSubmissionRequest->sCompletionCtx;
-	PdsNdkCloseMemoryRegionAsync(psController->sSession.pvSessionFabricCtx, psSubmissionRequest->psNdkWorkReq);
+	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psSubmissionRequest->psNdkWorkReq);
 	NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d: here!\n", __FUNCTION__, __LINE__);
 	KeWaitForSingleObject(&psSubmissionRequest->sCompletionCtx.sEvent, Executive, KernelMode, FALSE, NULL);
 	if (psSubmissionRequest->psDataBufferMdlMap->psLamSglMap->psSgl) {
@@ -3132,7 +3098,7 @@ NVMeoFRdmaSetupIOCmdRespLamAndSgl(__in PNVMEOF_FABRIC_CONTROLLER psController,
 	psNdkWorkReq->fnCallBack = NULL;
 	psNdkWorkReq->pvCallbackCtx = NULL;
 	psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_BUILD_LAM;
-	Status = PdsNdkBuildLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 	if (NT_ERROR(Status)) {
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:BuildLam Failed With Status 0x%x!\n", __FUNCTION__, __LINE__, Status);
 		return Status;
@@ -3159,7 +3125,7 @@ NVMeoFRdmaReleaseIOCmdRespLamAndSgl(__in    PNVMEOF_FABRIC_CONTROLLER           
 	RtlZeroMemory(psNdkWorkReq, sizeof(*psNdkWorkReq));
 	psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_RELEASE_LAM;
 	psNdkWorkReq->sReleaseLamReq.psLam = psReceiveReq->psBufferMdlMap->psLamSglMap->psLaml;
-	PdsNdkReleaseLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:Out!\n", __FUNCTION__, __LINE__);
 }
 
@@ -3170,7 +3136,7 @@ NVMeoFRdmaIOQSetupOneSubmissionRequestCommandBuffer(__in PNVMEOF_FABRIC_CONTROLL
                                                     __in PNVMEOF_RDMA_WORK_REQUEST psSubmissionRequest)
 {
 	UNREFERENCED_PARAMETER(psSQ);
-	PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psBufferMdlMap = psSubmissionRequest->psBufferMdlMap;
+	PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psBufferMdlMap = psSubmissionRequest->psBufferMdlMap;
 
 	psBufferMdlMap->pvBuffer = NVMeoFRdmaAllocateNVMeCmd(psController);
 	if (!psBufferMdlMap->pvBuffer) {
@@ -3213,7 +3179,7 @@ NVMeoFRdmaIOQSetupOneSubmissionRequestCommandBuffer(__in PNVMEOF_FABRIC_CONTROLL
 static
 NTSTATUS
 NVMeoFRdmaIOQSetupOneSubmissionRequestDataBuffer(__in PNVMEOF_FABRIC_CONTROLLER psController,
-	__in PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBufferFromRequest)
+	__in PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBufferFromRequest)
 {
 	psDataBufferFromRequest->psLamSglMap = NVMeoFRdmaAllocateLamSglMap(psController);
 	if (!psDataBufferFromRequest->psLamSglMap) {
@@ -3393,7 +3359,7 @@ NVMeoFRdmaIOQReleaseOneReceiveRequest(__in PNVMEOF_FABRIC_CONTROLLER psControlle
                                       __in PNVMEOF_RDMA_WORK_REQUEST psReceiveReq)
 {
 	UNREFERENCED_PARAMETER(psSQ);
-	PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psReceiveBuffer = psReceiveReq->psBufferMdlMap;
+	PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psReceiveBuffer = psReceiveReq->psBufferMdlMap;
 	if (psReceiveBuffer) {
 		if (psReceiveBuffer->psLamSglMap) {
 			if (psReceiveBuffer->psLamSglMap->usInitialized) {
@@ -3443,7 +3409,7 @@ NVMeoFRdmaIOQSetupOneReceiveRequest(__in PNVMEOF_FABRIC_CONTROLLER psController,
                                     __in PNVMEOF_RDMA_WORK_REQUEST psReceiveRequest)
 {
 	UNREFERENCED_PARAMETER(psSQ);
-	PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psReceiveBuffer = psReceiveRequest->psBufferMdlMap;
+	PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psReceiveBuffer = psReceiveRequest->psBufferMdlMap;
 	psReceiveBuffer->pvBuffer = NVMeoFRdmaAllocateNVMeCqe(psController);
 	if (!psReceiveBuffer->pvBuffer) {
 		return STATUS_NO_MEMORY;
@@ -3653,8 +3619,8 @@ NVMeoFRdmaAllocateAndInitializeRdmaIoReq(__in PNVMEOF_QUEUE psSQ)
 		psSQ->ulQDepth,
 		psSQ->ulIOHashBucketSz);
 
-#ifdef PDS_RDMA_USE_HASH_FOR_IO
-	psSQ->ulIOHashBucketSz = PDS_HASH_BUCKET_SZ;
+#ifdef NVMEF_RDMA_USE_HASH_FOR_IO
+	psSQ->ulIOHashBucketSz = NVMEF_RDMA_HASH_BUCKET_SZ;
 	psSQ->ppvIoReqTable = NVMeoFRdmaAllocateNpp(sizeof(PNVMEOF_RDMA_WORK_REQUEST) * psSQ->ulIOHashBucketSz);
 	if (!psSQ->ppvIoReqTable) {
 		return STATUS_INSUFFICIENT_RESOURCES;
@@ -3822,7 +3788,7 @@ NVMeoFRdmaIOQHandleRcqReq(_In_ PNVMEOF_QUEUE  psSQ,
 			NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
 				                     psRcqRdmaIoRequest->psBufferMdlMap->pvBuffer,
 				                     ulByteXferred,
-				                     PDS_PRINT_HEX_PER_LINE_8_BYTES);
+				                     NVMEF_PRINT_HEX_PER_LINE_8_BYTES);
 			psScqRdmaIoRequest =
                 NVMeoFRdmaIOQGetRequestByCmdId(psSQ,
                                                ((PNVME_COMPLETION_QUEUE_ENTRY)psRcqRdmaIoRequest->psBufferMdlMap->pvBuffer)->usCommandID,
@@ -3859,7 +3825,7 @@ NVMeoFRdmaIOQHandleRcqReq(_In_ PNVMEOF_QUEUE  psSQ,
 				NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
                                          psRcqRdmaIoRequest->psBufferMdlMap->pvBuffer,
                                          ulByteXferred,
-                                         PDS_PRINT_HEX_PER_LINE_8_BYTES);
+                                         NVMEF_PRINT_HEX_PER_LINE_8_BYTES);
 				//NVMeoFDisplayCQE(__FUNCTION__, psRcqRdmaIoRequest->psBufferMdlMap->pvBuffer);
 				bResubmitReceive = TRUE;
 				Status = STATUS_INVALID_PARAMETER;
@@ -3967,7 +3933,7 @@ NVMeoFRdmaIOQPRcqCalback(_In_ PNVMEOF_QUEUE   psSQ,
                                psResultEx->BytesTransferred,
                                psResultEx->Status,
                                psResultEx->Type,
-                               PdsNdkGetOperationType(psResultEx->Type),
+                               NdkGetOperationType(psResultEx->Type),
                                psResultEx->TypeSpecificCompletionOutput);
 				psResult = (PNDK_RESULT)psResultEx;
 				bResultEx = TRUE;
@@ -4113,7 +4079,7 @@ NVMeoFRdmaIOQHandleScqReq(_In_ PNVMEOF_QUEUE psSQ,
 				psRdmaIoReq,
 				psRdmaIoReq->usCommandID,
 				psRdmaIoReq->lReqState);
-			if (PDS_IS_REQUEST_IN_FREEING(psRdmaIoReq)) {
+			if (NVMEF_IS_REQUEST_IN_FREEING_STATE(psRdmaIoReq)) {
 				PNVMEOF_IO_REQ psIoReq = _InterlockedExchangePointer(&psRdmaIoReq->pvParentReqCtx, (PVOID)NULL);
 				if (psIoReq) {
 					NVMeoFRdmaIoCompletion(psSQ,
@@ -4265,7 +4231,7 @@ NVMeoFRdmaCreateIOQ(__in PNVMEOF_FABRIC_CONTROLLER psController,
                     __in PNVMEOF_QUEUE psSQP)
 {
 	NTSTATUS                    Status = STATUS_SUCCESS;
-	PPDS_NDK_QP_CALLBACKS       psSQCbs = &psSQP->sQPCallBacks;
+	PNVME_RDMA_NDK_QP_CALLBACKS       psSQCbs = &psSQP->sQPCallBacks;
 	PNVMEOF_RDMA_PRIVATE_DATA   psNvmeIOQPrivData = NVMEOF_QUEUE_GET_RDMA_CTX(psSQP)->psQueuePvtData;
 	psSQCbs->fnConnectEventHandler = NVMeoFRdmaIOQPConnectEvent;
 	psSQCbs->fnQPDisconnectEventHandler = NVMeoFRdmaIOQPDisconnect;
@@ -4282,7 +4248,7 @@ NVMeoFRdmaCreateIOQ(__in PNVMEOF_FABRIC_CONTROLLER psController,
 
 	RtlZeroMemory(psNvmeIOQPrivData, sizeof(*psNvmeIOQPrivData));
 	psNvmeIOQPrivData->usHrqsize = (USHORT)psSQP->ulQueueDepth;
-	psNvmeIOQPrivData->usHsqsize = (USHORT)PDS_NVME_GET_CAP_MQES(psController->ullControllerCapability);
+	psNvmeIOQPrivData->usHsqsize = (USHORT)NVME_GET_CAP_MQES(psController->ullControllerCapability);
 	psNvmeIOQPrivData->usQId = (USHORT)psSQP->usQId;
 	psNvmeIOQPrivData->usControllerId = psController->usControllerID;
 	psNvmeIOQPrivData->usRecfmt = (USHORT)NVMEOF_RDMA_CM_FMT_1_0;
@@ -4375,7 +4341,7 @@ NVMeoFRdmaXportConnectControllerIOQeueus(__in PNVMEOF_FABRIC_CONTROLLER psContro
 		                                     ((psController->sSession.lSQQueueCount + 1) / usNumaNodes));
 	USHORT         usNumaNodeCnt = 0;
 	GROUP_AFFINITY sCurrGroupAffnity = { 0 }, sSavedGroupAffnity = { 0 };
-	PPDS_NUMA_INFO psNumaInfo = NULL;
+	P_NUMA_INFO psNumaInfo = NULL;
 	if (psController->eControllerType != FABRIC_CONTROLLER_TYPE_CONNECT) {
 		return (STATUS_INVALID_PARAMETER);
 	}
@@ -4389,7 +4355,7 @@ NVMeoFRdmaXportConnectControllerIOQeueus(__in PNVMEOF_FABRIC_CONTROLLER psContro
 		usNumaNodes,
 		psController->sSession.usNumaBitShift);
 
-	psController->sSession.psNumaSQPair = NVMeoFRdmaAllocateNpp(usNumaNodes * sizeof(PDS_NUMA_INFO));
+	psController->sSession.psNumaSQPair = NVMeoFRdmaAllocateNpp(usNumaNodes * sizeof(_NUMA_INFO));
 	if (!psController->sSession.psNumaSQPair) {
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
@@ -4398,7 +4364,7 @@ NVMeoFRdmaXportConnectControllerIOQeueus(__in PNVMEOF_FABRIC_CONTROLLER psContro
                               &sSavedGroupAffnity,
                               NULL);
 	psNumaInfo = psController->sSession.psNumaSQPair;
-	RtlZeroMemory(psNumaInfo, usNumaNodes * sizeof(PDS_NUMA_INFO));
+	RtlZeroMemory(psNumaInfo, usNumaNodes * sizeof(_NUMA_INFO));
 
 	for (; usNumaNodeCnt < usNumaNodes; usNumaNodeCnt++) {
 		USHORT usQCount = 0;
@@ -4469,7 +4435,7 @@ NVMeoFRdmaInitIOQueues(__in PNVMEOF_FABRIC_CONTROLLER psController)
 	USHORT         usNumaNodes = psController->sSession.usNumaNodeCount;
 	USHORT         usIOQCountPerNumaNode = psController->sSession.usIOQPerNumaNode;
 	USHORT         usNumaNodeCnt = 0;
-	PPDS_NUMA_INFO psNumaInfo = NULL;
+	P_NUMA_INFO psNumaInfo = NULL;
 
 	psNumaInfo = psController->sSession.psNumaSQPair;
 
@@ -4511,7 +4477,7 @@ NVMeoFRdmaReleaseIOQSubmissionWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER psContr
 
 	psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_RELEASE_LAM;
 	psNdkWorkReq->sReleaseLamReq.psLam = psLamSgl->psLaml;
-	PdsNdkReleaseLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 	psRdmaIoReq->psDataBufferMdlMap->psBufferMdl = NULL;
 	psRdmaIoReq->psDataBufferMdlMap->pvBuffer = NULL;
 	psRdmaIoReq->psDataBufferMdlMap->ulBufferLength = 0;
@@ -4574,7 +4540,6 @@ NVMeoFRdmaIOQPrepareSubmissionWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER        
 	LARGE_INTEGER liCommandTimeOut = { 0 };
 	PNDK_WORK_REQUEST psNdkWorkReq = psRdmaIoReq->psNdkWorkReq;
 
-	//liCommandTimeOut.QuadPart = -PDS_MILLISECONDS_TO_100NANOSECONDS(PDS_SECONDS_TO_MILLISECONDS(PDS_NVME_ADMIN_COMMAND_TIMEOUT_SEC));
 	liCommandTimeOut.QuadPart = WDF_REL_TIMEOUT_IN_MS(NVMEOF_ADMIN_COMMAND_TIMEOUT_SEC * 1000ULL);
 
 	if (!psRdmaIoReq->psDataBufferMdlMap->psBufferMdl) {
@@ -4591,12 +4556,12 @@ NVMeoFRdmaIOQPrepareSubmissionWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER        
 	psNdkWorkReq->sBuildLamReq.psMdl = psRdmaIoReq->psDataBufferMdlMap->psBufferMdl;
 	psNdkWorkReq->sBuildLamReq.psLam = psRdmaIoReq->psDataBufferMdlMap->psLamSglMap->psLaml;
 	psNdkWorkReq->sBuildLamReq.ulLamCbSize =
-		PDS_GET_LAM_BUFFERSIZE(PDS_GET_MDL_PAGE_COUNT(psRdmaIoReq->psDataBufferMdlMap->psBufferMdl,
+		NVMEF_GET_LAM_BUFFERSIZE(NVMEF_GET_MDL_PAGE_COUNT(psRdmaIoReq->psDataBufferMdlMap->psBufferMdl,
 			psRdmaIoReq->psDataBufferMdlMap->pvBuffer));
 	psNdkWorkReq->sBuildLamReq.szMdlBytesToMap = MmGetMdlByteCount(psRdmaIoReq->psDataBufferMdlMap->psBufferMdl);
 	psNdkWorkReq->fnCallBack = NULL;
 	psNdkWorkReq->pvCallbackCtx = NULL;
-	Status = PdsNdkBuildLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:Data Lam creation Status 0x%x.\n", __FUNCTION__, __LINE__,
 		Status);
 	if (NT_ERROR(Status)) {
@@ -4618,13 +4583,13 @@ NVMeoFRdmaIOQPrepareSubmissionWorkRequest(__in PNVMEOF_FABRIC_CONTROLLER        
 	psNdkWorkReq->sFRMRReq.pvBaseVirtualAddress = (PVOID)((ULONG_PTR)psRdmaIoReq->psDataBufferMdlMap->pvBuffer ^ ((ULONG_PTR)psRdmaIoReq & 0xFFFFFFFFFFFFF000));
 	psNdkWorkReq->ulFlags = (NDK_OP_FLAG_ALLOW_REMOTE_READ | NDK_OP_FLAG_ALLOW_REMOTE_WRITE);
 	KeResetEvent(&psRdmaIoReq->sCompletionCtx.sEvent);
-	Status = PdsNdkFastRegister(psController->sSession.pvSessionFabricCtx, &psSQ->sQP, psRdmaIoReq->psNdkWorkReq);
+	Status = NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, &psSQ->psQP, psRdmaIoReq->psNdkWorkReq);
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:FRMR Status 0x%x Data buffer %#p base VA %#p len %u RemoteToken %lu\n", __FUNCTION__, __LINE__,
-		Status,
-		psRdmaIoReq->psBufferMdlMap->pvBuffer,
-		psRdmaIoReq->psNdkWorkReq->sFRMRReq.pvBaseVirtualAddress,
-		psRdmaIoReq->psDataBufferMdlMap->ulBufferLength,
-		psRdmaIoReq->psDataBufferMdlMap->psLamSglMap->uiRemoteMemoryTokenKey);
+		           Status,
+		           psRdmaIoReq->psBufferMdlMap->pvBuffer,
+		           psRdmaIoReq->psNdkWorkReq->sFRMRReq.pvBaseVirtualAddress,
+		           psRdmaIoReq->psDataBufferMdlMap->ulBufferLength,
+		           psRdmaIoReq->psDataBufferMdlMap->psLamSglMap->uiRemoteMemoryTokenKey);
 	Status = KeWaitForSingleObject(&psRdmaIoReq->sCompletionCtx.sEvent, Executive, KernelMode, FALSE, &liCommandTimeOut);
 	if (NT_TIMEOUT(Status)) {
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Wait complete with command timeout 0x%x issuing cleanup!\n",
@@ -4724,7 +4689,7 @@ NVMeoFRdmaIOQPSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER psController
                    __FUNCTION__,
                    __LINE__,
                    psRdmaIoReq->psNdkWorkReq);
-#if PDS_RDMA_USE_HASH_FOR_IO
+#if NVMEF_RDMA_USE_HASH_FOR_IO
 	if (_InterlockedCompareExchangePointer(&psSQ->ppvIoReqTable[psRdmaIoReq->usCommandID], psRdmaIoReq, NULL) != NULL) {
 		NT_ASSERT(0);
 	}
@@ -4750,7 +4715,6 @@ NVMeoFRdmaIOQPSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER psController
                    __FUNCTION__,
                    __LINE__,
                    Status);
-	//liCommandTimeOut.QuadPart = -PDS_MILLISECONDS_TO_100NANOSECONDS(PDS_SECONDS_TO_MILLISECONDS(PDS_NVME_ADMIN_COMMAND_TIMEOUT_SEC));
 	liCommandTimeOut.QuadPart = WDF_REL_TIMEOUT_IN_MS(NVMEOF_IO_COMMAND_TIMEOUT_SEC * 1000ULL);
 	_InterlockedOr(&psRdmaIoReq->lReqState, NVMEOF_WORK_REQUEST_STATE_WAITING_FOR_RESPONSE);
 	NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d:QId %hu Request %#p CmdId %hu State %#x!\n", __FUNCTION__, __LINE__,
@@ -4777,7 +4741,7 @@ NVMeoFRdmaIOQPSubmitRequestSyncAsync(__in PNVMEOF_FABRIC_CONTROLLER psController
                        Status);
 		if (NT_ERROR(psRdmaIoReq->Status)) {
 			Status = psRdmaIoReq->Status;
-#if PDS_RDMA_USE_HASH_FOR_IO
+#if NVMEF_RDMA_USE_HASH_FOR_IO
 			NVMeoFRdmaIOQGetRequestByCmdId(psSQ,
 				psRdmaIoReq->usCommandID,
 				TRUE);
@@ -4807,7 +4771,7 @@ NTSTATUS
 NVMeoFRdmaConnectNvmeofIOQueues(__in PNVMEOF_FABRIC_CONTROLLER psController)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-	PPDS_NUMA_INFO psNumaNode = psController->sSession.psNumaSQPair;
+	P_NUMA_INFO psNumaNode = psController->sSession.psNumaSQPair;
 	ULONG ulReqSz = 0;
 	PNVMEOF_REQUEST_RESPONSE psAdminReqResp = NULL;
 	PNVME_CMD psNVMeConnReq = NULL;
@@ -4956,7 +4920,7 @@ NVMeoFRdmaIoFRCompletion(__in PNVMEOF_QUEUE            psSQ,
 	PNVMEOF_RDMA_WORK_REQUEST psRdmaIoReq = psNdkWorkReq->pvCallbackCtx;
 	ULONG ulOpCode = ((PNVME_READ_WRITE_COMMAND)psRdmaIoReq->psBufferMdlMap->pvBuffer)->ucOpCode;
 	ULONG ulRdmaReqFlag = 0;
-	PPDS_NVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBuffer = psRdmaIoReq->psDataBufferMdlMap;
+	PNVMEF_TRANSPORT_RDMA_BUFFER_MDL psDataBuffer = psRdmaIoReq->psDataBufferMdlMap;
 	KLOCK_QUEUE_HANDLE sLockHandle = { 0 };
 	KIRQL Irql = 0;
 	_InterlockedDecrement(&NVMEOF_QUEUE_GET_RDMA_CTX(psSQ)->lFRMRReqOutstanding);
@@ -4984,10 +4948,10 @@ NVMeoFRdmaIoFRCompletion(__in PNVMEOF_QUEUE            psSQ,
                    psDataBuffer->psLamSglMap->uiRemoteMemoryTokenKey,
                    psDataBuffer->psLamSglMap->psNdkMr);
 	if (((PNDK_SOCKET)psSQ->psParentController->sSession.pvSessionFabricCtx)->bSupportsRemoteInvalidation) {
-		psRdmaIoReq->ulReqFlag = PDS_NVMEOF_WORK_REQUEST_FLAG_LOCAL_INVALIDATE;
+		psRdmaIoReq->ulReqFlag = NVMEOF_WORK_REQUEST_FLAG_LOCAL_INVALIDATE;
 		ulRdmaReqFlag = NVMEOF_COMMAND_DESCRIPTORT_TYPE_SG_MULTIPLE;
 	} else {
-		psRdmaIoReq->ulReqFlag = PDS_NVMEOF_WORK_REQUEST_FLAG_LOCAL_INVALIDATE;
+		psRdmaIoReq->ulReqFlag = NVMEOF_WORK_REQUEST_FLAG_LOCAL_INVALIDATE;
 		ulRdmaReqFlag = NVMEOF_COMMAND_DESCRIPTORT_TYPE_SG_SINGLE;
 	}
 
@@ -5008,7 +4972,7 @@ NVMeoFRdmaIoFRCompletion(__in PNVMEOF_QUEUE            psSQ,
 	NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
                              psRdmaIoReq->psBufferMdlMap->pvBuffer,
                              sizeof(NVME_CMD),
-                             PDS_PRINT_HEX_PER_LINE_MAX_BYTES);
+                             NVMEF_PRINT_HEX_PER_LINE_MAX_BYTES);
 	RtlZeroMemory(psNdkWorkReq, sizeof(*psNdkWorkReq));
 	psNdkWorkReq->ulType = NDK_WREQ_SQ_SEND;
 	psNdkWorkReq->sSendReq.uiRemoteMemoryRegionToken = 0;
@@ -5019,7 +4983,7 @@ NVMeoFRdmaIoFRCompletion(__in PNVMEOF_QUEUE            psSQ,
 	psNdkWorkReq->ulFlags = 0;
 	_mm_mfence();
 
-#ifdef PDS_RDMA_USE_HASH_FOR_IO
+#ifdef NVMEF_RDMA_USE_HASH_FOR_IO
 	if (_InterlockedCompareExchangePointer(&psSQ->ppvIoReqTable[psRdmaIoReq->usCommandID], psRdmaIoReq, NULL) != NULL) {
 		NT_ASSERT(0);
 	}
@@ -5051,7 +5015,7 @@ NVMeoFRdmaIoFRCompletion(__in PNVMEOF_QUEUE            psSQ,
 		NVMeoFLogEvent(NVME_OF_ERROR, "%s:%d:Failed to Send Request (0x%x) Issuing invalidate.\n", __FUNCTION__, __LINE__,
 			Status);
 		_InterlockedExchange(&psRdmaIoReq->lReqState, NVMEOF_WORK_REQUEST_STATE_FREEING);
-#ifdef PDS_RDMA_USE_HASH_FOR_IO
+#ifdef NVMEF_RDMA_USE_HASH_FOR_IO
 		_InterlockedExchangePointer(&psSQ->ppvIoReqTable[psRdmaIoReq->usCommandID], NULL);
 #endif
 		psRdmaIoReq->Status = Status;
@@ -5093,7 +5057,7 @@ NVMeoFRdmaIoSendCompletion(__in PNVMEOF_QUEUE            psSQ,
 	if (NT_SUCCESS(Status)) {
 		if (_InterlockedCompareExchange(&psRdmaIoReq->lReqState,
 			NVMEOF_WORK_REQUEST_STATE_FREEING,
-			PDS_NVME_REQUEST_ALL_STATE_DONE) == PDS_NVME_REQUEST_ALL_STATE_DONE) {
+			NVMEF_REQUEST_ALL_STATE_DONE) == NVMEF_REQUEST_ALL_STATE_DONE) {
 			Status =
 				NVMeoFRdmaIOQInvalidateDataMr(psSQ->psParentController,
                                               psSQ,
@@ -5124,7 +5088,7 @@ NVMeoFRdmaIOQReleaseDataLam(__in    PNVMEOF_FABRIC_CONTROLLER              psCon
 
 	psNdkWorkReq->ulType = NDK_WREQ_ADAPTER_RELEASE_LAM;
 	psNdkWorkReq->sReleaseLamReq.psLam = psLamSgl->psLaml;
-	PdsNdkReleaseLam(psController->sSession.pvSessionFabricCtx, psNdkWorkReq);
+	NdkSubmitRequest(psController->sSession.pvSessionFabricCtx, NULL, psNdkWorkReq);
 
 	psLamSgl->pvBaseVA = NULL;
 	psLamSgl->psMdl = NULL;
@@ -5145,7 +5109,7 @@ NVMeoFRdmaIoCompletion(__in PNVMEOF_QUEUE             psSQ,
 		NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_INFO,
 			psIoReq->pucDataBuffer,
 			psIoReq->ulLength,
-			PDS_PRINT_HEX_PER_LINE_32_BYTES);
+			NVMEF_PRINT_HEX_PER_LINE_32_BYTES);
 	}
 
 	NT_ASSERT(psRdmaIoReq->lReqState == NVMEOF_WORK_REQUEST_STATE_FREEING);
@@ -5195,7 +5159,7 @@ NVMeoFRdmaNVMeIoResponseCompletion(__in PNVMEOF_QUEUE             psSQ,
 
 	if (_InterlockedCompareExchange(&psScqRdmaIoRequest->lReqState,
 		NVMEOF_WORK_REQUEST_STATE_FREEING,
-		PDS_NVME_REQUEST_ALL_STATE_DONE) == PDS_NVME_REQUEST_ALL_STATE_DONE) {
+		NVMEF_REQUEST_ALL_STATE_DONE) == NVMEF_REQUEST_ALL_STATE_DONE) {
 		Status =
 			NVMeoFRdmaIOQInvalidateDataMr(psSQ->psParentController,
 				psSQ,
@@ -5234,7 +5198,7 @@ NVMeoFRdmaIOQFastRegisterDataMR(__in PNVMEOF_FABRIC_CONTROLLER psController,
 	psNdkWorkRequest->sFRMRReq.ulFBO = psLamSglMap->ulFBO;
 	psNdkWorkRequest->sFRMRReq.szLength = psRdmaIoReq->psDataBufferMdlMap->ulBufferLength;
 	psNdkWorkRequest->sFRMRReq.pvBaseVirtualAddress =
-		(PVOID)(((ULONG_PTR)psRdmaIoReq->psDataBufferMdlMap->pvBuffer) ^ PDS_BASEVA_MASK(psRdmaIoReq->psDataBufferMdlMap->ulBufferLength));
+		(PVOID)(((ULONG_PTR)psRdmaIoReq->psDataBufferMdlMap->pvBuffer) ^ NVMEF_RDMA_BASEVA_MASK(psRdmaIoReq->psDataBufferMdlMap->ulBufferLength));
 
 	_mm_mfence();
 
@@ -5246,7 +5210,7 @@ NVMeoFRdmaIOQFastRegisterDataMR(__in PNVMEOF_FABRIC_CONTROLLER psController,
                    psLamSglMap->ulFBO,
                    MmGetMdlByteCount(psLamSglMap->psMdl),
                    MmGetMdlVirtualAddress(psLamSglMap->psMdl),
-                   PDS_BASEVA_MASK(MmGetMdlByteCount(psLamSglMap->psMdl)),
+                   NVMEF_RDMA_BASEVA_MASK(MmGetMdlByteCount(psLamSglMap->psMdl)),
                    psLamSglMap->uiRemoteMemoryTokenKey);
 
 	NVMeoFDebugLog(LOG_LEVEL_INFO,
@@ -5304,7 +5268,7 @@ NVMeoFRdmaIOQBuildDataLamCompletion(__inout PNVMEOF_RDMA_WORK_REQUEST psRdmaIoRe
 	}
 }
 
-#ifdef PDS_DBG
+#ifdef NVMEF_RDMA_DBG
 static
 VOID
 NVMeoFRdmaPrintLAMList(__in LOG_LEVEL ulLoglevel,
@@ -5403,7 +5367,7 @@ NVMeoFRdmaPrepareRWRequest(__in PNVMEOF_FABRIC_CONTROLLER    psController,
 	NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_VERBOSE,
                              (PUCHAR)psNvmeRWPdu,
                              sizeof(NVME_CMD),
-                             PDS_PRINT_HEX_PER_LINE_MAX_BYTES);
+                             NVMEF_PRINT_HEX_PER_LINE_MAX_BYTES);
 	if (_InterlockedCompareExchangePointer((volatile PVOID*)&psRdmaIoReq->pvParentReqCtx, (PVOID)psIoReq, (PVOID)NULL) != NULL) {
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:Invalid state of Parent Ctx %#p!\n", __FUNCTION__, __LINE__, psRdmaIoReq->pvParentReqCtx);
 		_InterlockedExchangePointer((volatile PVOID*)&psRdmaIoReq->pvParentReqCtx, (PVOID)psIoReq);
@@ -5417,7 +5381,7 @@ NVMeoFRdmaPrepareRWRequest(__in PNVMEOF_FABRIC_CONTROLLER    psController,
 		NVMeoFRdmaPrintHexBuffer(LOG_LEVEL_INFO,
                                  psIoReq->pucDataBuffer,
                                  psIoReq->ulLength,
-                                 PDS_PRINT_HEX_PER_LINE_32_BYTES);
+                                 NVMEF_PRINT_HEX_PER_LINE_32_BYTES);
 	}
 
 	NVMeoFDebugLog(LOG_LEVEL_VERBOSE, "%s:%d: MR Remote Token %x with Len %u!\n", __FUNCTION__, __LINE__,
@@ -5550,12 +5514,12 @@ NVMeoFRdmaXportDisconnectController(__in PNVMEOF_FABRIC_CONTROLLER psController)
 
 	if (psController->sSession.psAdminQueue->psFabricCtx->psRdmaCtx->sQP.psNdkQp) {
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d: Closing Admin Queue\n", __FUNCTION__, __LINE__);
-		PdsNdkDisconnectSyncAsyncRdmaSocketQP(psController->sSession.pvSessionFabricCtx,
+		NdkDisconnectSyncAsyncRdmaSocketQP(psController->sSession.pvSessionFabricCtx,
 			&psController->sSession.psAdminQueue->psFabricCtx->psRdmaCtx->sQP);
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d: Freeing Admin Resources.\n", __FUNCTION__, __LINE__);
 		NVMeoFRdmaAdminFreeResources(psController);
 		NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d: Freeing RDMA Socket Resources.\n", __FUNCTION__, __LINE__);
-		PdsNdkDisconnecAndCloseAsyncRdmaSocket(psController->sSession.pvSessionFabricCtx);
+		NdkDisconnecAndCloseAsyncRdmaSocket(psController->sSession.pvSessionFabricCtx);
 		psController->lAdminQueueCount--;
 	}
 
@@ -5568,7 +5532,7 @@ NTSTATUS
 NVMeoFRdmaXportDisableIOQueueEvents(__in PNVMEOF_FABRIC_CONTROLLER psController)
 {
 	NTSTATUS       Status = STATUS_SUCCESS;
-	PPDS_NUMA_INFO psNumaSQPair = psController->sSession.psNumaSQPair;
+	P_NUMA_INFO psNumaSQPair = psController->sSession.psNumaSQPair;
 	USHORT         usQCount = 0, usNumaNodeCnt = 0;
 
 	NVMeoFDebugLog(LOG_LEVEL_VERBOSE, "%s:%d:Entered to disable Events on IOQs 0x%p!\n", __FUNCTION__, __LINE__, psNumaSQPair);
@@ -5610,7 +5574,7 @@ static
 BOOLEAN
 NVMeoFRdmaXportControllerQueuesBusy(__in PNVMEOF_FABRIC_CONTROLLER psController)
 {
-	PPDS_NUMA_INFO psNumaSQPair = psController->sSession.psNumaSQPair;
+	P_NUMA_INFO psNumaSQPair = psController->sSession.psNumaSQPair;
 	USHORT         usQCount = 0, usNumaNodeCnt = 0;
 	PNVMEOF_QUEUE  psNodeSQPair = NULL;
 
@@ -5679,14 +5643,14 @@ NVMeoFRdmaNvmeofDisconnect(__in PNVMEOF_FABRIC_CONTROLLER psController)
 static
 UINT32
 NVMeoFRdmaGetPduLen(__in PNVMEOF_FABRIC_CONTROLLER psController, 
-                    __in PDS_NVME_PDU_TYPE ulPduType)
+                    __in NVMEF_PDU_TYPE ulPduType)
 {
 	UNREFERENCED_PARAMETER(psController);
 	switch (ulPduType) {
-	case PDS_NVME_PDU_TYPE_COMMAND:
+	case NVMEF_PDU_TYPE_COMMAND:
 		return (sizeof(NVME_CMD));
 		break;
-	case PDS_NVME_PDU_TYPE_RESPONSE:
+	case NVMEF_PDU_TYPE_RESPONSE:
 		return (sizeof(NVME_COMPLETION_QUEUE_ENTRY));
 		break;
 	default:
@@ -6043,7 +6007,7 @@ NVMeoFRdmaAdminRequestSetResponseData(PNVMEOF_FABRIC_CONTROLLER psController,
 		psAdminRequest->sRcvBuffer.ulDataLen = 0;
 		return (STATUS_NO_MEMORY);
 	}
-	psAdminRequest->ulFlags |= PDS_NVMEOF_ADMIN_REQUEST_TYPE_USER_RECEIVE_DATA_BUFFER;
+	psAdminRequest->ulFlags |= NVMEOF_ADMIN_REQUEST_TYPE_USER_RECEIVE_DATA_BUFFER;
 	return STATUS_SUCCESS;
 }
 
@@ -6053,13 +6017,13 @@ NVMeoFRdmaXportFreeAdminRequests(PNVMEOF_FABRIC_CONTROLLER psController, PNVMEOF
 {
 	if (psAdminReq) {
 		if (psAdminReq->sSndBuffer.pvData &&
-			!(psAdminReq->ulFlags & PDS_NVMEOF_ADMIN_REQUEST_TYPE_USER_SEND_DATA_BUFFER)) {
+			!(psAdminReq->ulFlags & NVMEOF_ADMIN_REQUEST_TYPE_USER_SEND_DATA_BUFFER)) {
 			NVMeoFRdmaFreeNpp(psAdminReq->sSndBuffer.pvData);
 			psAdminReq->sSndBuffer.pvData = NULL;
 		}
 
 		if (psAdminReq->sRcvBuffer.pvData &&
-			!(psAdminReq->ulFlags & PDS_NVMEOF_ADMIN_REQUEST_TYPE_USER_RECEIVE_DATA_BUFFER)) {
+			!(psAdminReq->ulFlags & NVMEOF_ADMIN_REQUEST_TYPE_USER_RECEIVE_DATA_BUFFER)) {
 			NVMeoFRdmaFreeNpp(psAdminReq->sRcvBuffer.pvData);
 			psAdminReq->sRcvBuffer.pvData = NULL;
 		}
@@ -6268,11 +6232,11 @@ NVMeoFRdmaAllocatAndInitializeController(__in CONTROLLER_TYPE ulControllerType,
 		return NULL;
 	}
 
-	Status = PdsNdkStartup();
+	Status = NVMeoFNdkStartup();
 	if (!NT_SUCCESS(Status)) {
 		if (Status != STATUS_ALREADY_REGISTERED) {
-			NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:PdsNdkStartup Failed with Status = 0x%x\n", __FUNCTION__, __LINE__, Status);
-			NVMeoFLogEvent(NVME_OF_ERROR, "%s:%d:PdsNdkStartup Failed with Status = 0x%x\n", __FUNCTION__, __LINE__, Status);
+			NVMeoFDebugLog(LOG_LEVEL_ERROR, "%s:%d:NdkStartup Failed with Status = 0x%x\n", __FUNCTION__, __LINE__, Status);
+			NVMeoFLogEvent(NVME_OF_ERROR, "%s:%d:NdkStartup Failed with Status = 0x%x\n", __FUNCTION__, __LINE__, Status);
 			return NULL;
 		}
 	}

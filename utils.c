@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #include <wdm.h>
 #include "sp.h"
 #include "errdbg.h"
@@ -67,7 +71,7 @@ NVMeoFPrintDebugLog(__in ULONG ulLogLevel,
 {
 	if (psNVMeoFGlobalInfo && (ulLogLevel < psNVMeoFGlobalInfo->MPRegInfo.ulDebugLevel)) {
 #if USE_ALLOCATED_DEBUG_PRINT_BUFFER
-		PCHAR pcPrintBuffer = PdsNVMeoFBusAllocateNpp(sizeof(CHAR) * DEBUG_STRING_BUFFER_SIZE_256B);
+		PCHAR pcPrintBuffer = NVMeoFBusAllocateNpp(sizeof(CHAR) * DEBUG_STRING_BUFFER_SIZE_256B);
 #else
 		CHAR caBuff[NVMEOF_UTILS_BUFFER_SIZE_512B] = { 0 };
 		PCHAR pcPrintBuffer = caBuff;
@@ -84,7 +88,7 @@ NVMeoFPrintDebugLog(__in ULONG ulLogLevel,
 			va_end(variableArgumentList);
 			DbgPrint("%s", pcPrintBuffer);
 #if USE_ALLOCATED_DEBUG_PRINT_BUFFER
-			PdsNVMeoFBusFreeNpp(pcPrintBuffer);
+			NVMeoFBusFreeNpp(pcPrintBuffer);
 #endif
 		}
 	}
@@ -276,8 +280,8 @@ NVMeoFUtilsPrintHexBuffer(ULONG  ulLoglevel,
 		PCHAR pcTmepStr = NULL;
 		ULONG ulCharPerLn = 0;
 #define SINGLE_CHAR_FORMAT_STRING "%.02hx "
-#define PDS_RECEIVE_BUFFER_SIZE_512B 512
-		pcFormatString = NVMeoFRdmaAllocateNpp(PDS_RECEIVE_BUFFER_SIZE_512B);
+#define NVMEOF_RECEIVE_BUFFER_SIZE_512B 512
+		pcFormatString = NVMeoFRdmaAllocateNpp(NVMEOF_RECEIVE_BUFFER_SIZE_512B);
 		if (!pcFormatString) {
 			return;
 		}
@@ -289,9 +293,9 @@ NVMeoFUtilsPrintHexBuffer(ULONG  ulLoglevel,
 				pcTmepStr += strlen(pcTmepStr);
 			}
 			NVMeoFDebugLog(ulLoglevel, "%s\n", pcFormatString);
-			RtlZeroMemory(pcFormatString, PDS_RECEIVE_BUFFER_SIZE_512B);
+			RtlZeroMemory(pcFormatString, NVMEOF_RECEIVE_BUFFER_SIZE_512B);
 		}
-		RtlZeroMemory(pcFormatString, PDS_RECEIVE_BUFFER_SIZE_512B);
+		RtlZeroMemory(pcFormatString, NVMEOF_RECEIVE_BUFFER_SIZE_512B);
 		if (ulBufSize % ulPrintCntPerLine) {
 			for (pcTmepStr = pcFormatString, ulCharPerLn = 0; ulCharPerLn < (ulBufSize % ulPrintCntPerLine); ulCharPerLn++, pucBuffer++) {
 				sprintf(pcTmepStr, SINGLE_CHAR_FORMAT_STRING, *pucBuffer);

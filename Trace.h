@@ -1,19 +1,7 @@
-/*++
-
-Module Name:
-
-    Trace.h
-
-Abstract:
-
-    Header file for the debug tracing related function defintions and macros.
-
-Environment:
-
-    Kernel mode
-
---*/
-
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 //
 // Define the tracing flags.
 //

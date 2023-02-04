@@ -1,6 +1,10 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 ;/*++ BUILD Version: 0001    // Increment this if a change has global effects
 ;
-;Copyright (c) 2019-2020  Pavilio Data Systems Inc.
+;Copyright (c) 2022-2022  Leap Distributed Tech LLC..
 ;
 ;Module Name:
 ;

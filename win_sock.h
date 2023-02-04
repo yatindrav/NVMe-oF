@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #pragma once
 
 #pragma warning(push)
@@ -47,6 +51,26 @@ extern WSK_PROVIDER_NDK_DISPATCH gsNdkDispatch;
 
 extern BOOLEAN NTAPI IsWskinitialized(VOID);
 extern BOOLEAN NTAPI IsNdkinitialized(VOID);
+_IRQL_requires_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS
+NVMeoFNdkStartup(VOID);
+
+_IRQL_requires_(PASSIVE_LEVEL)
+VOID
+NVMeoFNdkCleanup(VOID);
+
+_IRQL_requires_(PASSIVE_LEVEL)
+_Must_inspect_result_
+NTSTATUS
+NTAPI
+NVMeoFWskStartup(VOID);
+
+_IRQL_requires_(PASSIVE_LEVEL)
+VOID
+NTAPI
+NVMeoFWskCleanup(VOID);
+
 
 typedef NDK_RESULT* PNDK_RESULT;
 typedef NDK_RESULT_EX* PNDK_RESULT_EX;

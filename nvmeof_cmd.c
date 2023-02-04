@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #include <wdm.h>
 #include <ntstrsafe.h>
 #include "nvme.h"
@@ -35,7 +39,7 @@ NVMeoFDisplayCQE(__in PCHAR pcFuncName,
 		psCQE->sStatus.sStatusField.PhaseTag);
 }
 
-#ifdef PDS_DBG
+#ifdef NVMEOF_DBG
 static
 VOID
 NVMeoFDisplayNVMeFabCmd(__in PCHAR pcFuncName,
@@ -920,9 +924,9 @@ NVMeoFAsyncIssueKeepAlive(__in PNVMEOF_FABRIC_CONTROLLER psFabController)
 
 static
 NTSTATUS
-PdsConvertStringToInteger(__in PCHAR string,
-                          __in ULONG Base,
-                          __in PULONG retInt)
+NVMeoFConvertStringToInteger(__in PCHAR string,
+                             __in ULONG Base,
+                             __in PULONG retInt)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	ANSI_STRING sAnsiStr = { 0 };
@@ -990,7 +994,7 @@ NVMeoFGetDiscoveryLogPage(__in PNVMEOF_FABRIC_CONTROLLER psFabController,
 				NVMeoFDebugLog(NVMEOF_DEBUG_LOG_LEVEL_DEBUG, "traddr:%s\n", psDiscPgEnt->caXportAddress);
 				NVMeoFDebugLog(NVMEOF_DEBUG_LOG_LEVEL_DEBUG, "Port:%s\n", psDiscPgEnt->sXportSpecificSubtype);
 				NVMeoFDebugLog(NVMEOF_DEBUG_LOG_LEVEL_DEBUG, "NQN:%s\n", psDiscPgEnt->caNVMSubSystemNQN);
-				Status = PdsConvertStringToInteger(psDiscPgEnt->caXportServiceIdentifier, 10, &port);
+				Status = NVMeoFConvertStringToInteger(psDiscPgEnt->caXportServiceIdentifier, 10, &port);
 				NVMeoFDebugLog(NVMEOF_DEBUG_LOG_LEVEL_DEBUG, "Port:%d\n", (USHORT)port);
 				psUserDiscEnt->portid = psDiscPgEnt->usPortID;
 				psUserDiscEnt->addrfamily = psDiscPgEnt->ucAddressFamily;

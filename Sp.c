@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 #include "sp.h"
 #include "trace.h"
 #include "sp.tmh"
@@ -307,7 +311,7 @@ DriverEntry(__in PVOID psDriverObject,
         WPP_CLEANUP(psDriverObject);
     }
 
-    //PdsNvmeLogEvent(PDS_NVME_INFORMATIONAL, "%s:%d: PdsNVMe Driver Version %s", __FUNCTION__, __LINE__, NVMEOF_STORPORT_VERSION);
+    NVMeoFLogEvent(NVMEF_INFORMATIONAL, "%s:%d: NVMeoF Driver Version %s", __FUNCTION__, __LINE__, NVMEOF_STORPORT_VERSION);
     NVMeoFDebugLog(LOG_LEVEL_INFO, "%s:%d: Exiting Status=0x%x!\n", __FUNCTION__, __LINE__, status);
 
     return status;

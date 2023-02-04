@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023, Leap Distributed Tech LLC. All rights reserved.
+ * See file LICENSE.md for terms.
+ */
 /****************************** Module Header Starts *********************************************************************************
 * Module Name:  KSockClient.c
 * Project:      Pavilion Virtual Bus Driver part of NVMeOF Solution
